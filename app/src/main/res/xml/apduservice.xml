@@ -1,0 +1,8 @@
+<host-apdu-service xmlns:android="http://schemas.android.com/apk/res/android"
+    android:description="@string/nfc_emulation_service_description"
+    android:requireDeviceUnlock="true">
+    <aid-group android:description="@string/psiphon_nfc_aid_description"
+        android:category="other">
+        <aid-filter android:name="50736970686f6e4e6663"/>
+    </aid-group>
+</host-apdu-service>

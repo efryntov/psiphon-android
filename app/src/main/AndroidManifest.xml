@@ -22,6 +22,7 @@
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
 
     <uses-feature android:name="android.hardware.nfc" android:required="false" />
+    <uses-feature android:name="android.hardware.nfc.hce" android:required="false" />
 
     <application
         android:name=".PsiphonApplication"
@@ -45,18 +46,6 @@
             android:name="com.psiphon3.psiphonlibrary.TunnelIntentsHandler"
             android:exported="false"
             android:targetActivity="com.psiphon3.StatusActivity" />
-
-        <activity android:name=".psiphonlibrary.NfcActivity" />
-        <activity-alias
-            android:name=".psiphonlibrary.NfcActivity"
-            android:targetActivity=".StatusActivity"
-            android:enabled="false">
-            <intent-filter>
-                <action android:name="android.nfc.action.NDEF_DISCOVERED"/>
-                <category android:name="android.intent.category.DEFAULT"/>
-                <data android:mimeType="psiphon://nfc" />
-            </intent-filter>
-        </activity-alias>
 
         <activity
             android:name=".FeedbackActivity"
@@ -116,6 +105,19 @@
             android:label="@string/upgrade_checker_service_name"
             android:exported="false"
             android:process=":UpgradeChecker" >
+        </service>
+
+        <service
+            android:name=".psiphonlibrary.NfcCardEmulationService"
+            android:exported="true"
+            android:permission="android.permission.BIND_NFC_SERVICE">
+            <intent-filter>
+                <action android:name="android.nfc.cardemulation.action.HOST_APDU_SERVICE" />
+            </intent-filter>
+
+            <meta-data
+                android:name="android.nfc.cardemulation.host_apdu_service"
+                android:resource="@xml/apduservice" />
         </service>
 
         <provider

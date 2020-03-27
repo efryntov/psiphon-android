@@ -42,6 +42,7 @@ import android.os.Messenger;
 import android.os.RemoteException;
 import android.support.v4.app.NotificationCompat;
 import android.text.TextUtils;
+import android.util.Log;
 
 import com.jakewharton.rxrelay2.BehaviorRelay;
 import com.jakewharton.rxrelay2.PublishRelay;
@@ -657,7 +658,7 @@ public class TunnelManager implements PsiphonTunnel.HostService, MyLog.ILogger {
 
                 case NFC_CONNECTION_INFO_EXCHANGE_EXPORT:
                     if (manager != null) {
-                        manager.handleNfcConnectionInfoExchangeExport();
+                        manager.handleNfcConnectionInfoExchangeExport(msg.replyTo);
                     }
                     break;
 
@@ -705,13 +706,18 @@ public class TunnelManager implements PsiphonTunnel.HostService, MyLog.ILogger {
         sendClientMessage(ServiceToClientMessage.NFC_CONNECTION_INFO_EXCHANGE_RESPONSE_IMPORT.ordinal(), response);
     }
 
-    private void handleNfcConnectionInfoExchangeExport() {
-        // Get the payload to export and send back to the StatusActivity
+    private void handleNfcConnectionInfoExchangeExport(Messenger messenger) {
+        // Get the payload to export and send back to the requesting party
         String connectionInfo = m_tunnel.exportExchangePayload();
+        Log.d("HACK", "handleNfcConnectionInfoExchangeExport: data: " + connectionInfo);
 
         Bundle response = new Bundle();
         response.putString(TunnelManager.DATA_NFC_CONNECTION_INFO_EXCHANGE_RESPONSE_EXPORT, connectionInfo);
-        sendClientMessage(ServiceToClientMessage.NFC_CONNECTION_INFO_EXCHANGE_RESPONSE_EXPORT.ordinal(), response);
+        Message msg = composeClientMessage(ServiceToClientMessage.NFC_CONNECTION_INFO_EXCHANGE_RESPONSE_EXPORT.ordinal(), response);
+        try {
+            messenger.send(msg);
+        } catch (RemoteException ignored) {
+        }
     }
 
     private void scheduleGetHelpConnecting() {

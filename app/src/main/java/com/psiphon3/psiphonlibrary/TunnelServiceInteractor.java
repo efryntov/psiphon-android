@@ -33,6 +33,7 @@ import android.os.Message;
 import android.os.Messenger;
 import android.os.RemoteException;
 import android.support.v4.content.LocalBroadcastManager;
+import android.util.Log;
 
 import com.jakewharton.rxrelay2.BehaviorRelay;
 import com.jakewharton.rxrelay2.PublishRelay;
@@ -298,6 +299,7 @@ public class TunnelServiceInteractor {
     }
 
     public void nfcExportConnectionInfo() {
+        Log.d("HACK", "nfcExportConnectionInfo: ");
         sendServiceMessage(TunnelManager.ClientToServiceMessage.NFC_CONNECTION_INFO_EXCHANGE_EXPORT.ordinal(), null);
     }
 
@@ -352,6 +354,7 @@ public class TunnelServiceInteractor {
                     tunnelServiceInteractor.dataStatsRelay.accept(state.isConnected);
                     break;
                 case NFC_CONNECTION_INFO_EXCHANGE_RESPONSE_EXPORT:
+                    Log.d("HACK", "handleMessage: got new connection data export");
                     tunnelServiceInteractor.nfcExchangeRelay.accept(NfcExchange.exported(data.getString(TunnelManager.DATA_NFC_CONNECTION_INFO_EXCHANGE_RESPONSE_EXPORT)));
                     break;
                 case NFC_CONNECTION_INFO_EXCHANGE_RESPONSE_IMPORT:

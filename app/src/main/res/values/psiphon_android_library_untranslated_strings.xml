@@ -115,4 +115,7 @@
         <item>Oʻzbekcha,uz</item>
         <item>Tiếng Việt,vi</item>
     </string-array>
+
+    <string name="nfc_emulation_service_description">Psiphon NFC exchange service</string>
+    <string name="psiphon_nfc_aid_description">Psiphon NFC exchange AID</string>
 </resources>

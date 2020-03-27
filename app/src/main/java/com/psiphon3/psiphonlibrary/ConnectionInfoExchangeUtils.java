@@ -19,14 +19,22 @@
 
 package com.psiphon3.psiphonlibrary;
 
+import android.app.Activity;
+import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.nfc.NdefMessage;
 import android.nfc.NfcAdapter;
+import android.nfc.tech.IsoDep;
 import android.os.Build;
+import android.os.Bundle;
 import android.os.Parcelable;
+import android.support.annotation.RequiresApi;
+import android.util.Log;
+import android.widget.Toast;
 
+import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.nio.charset.Charset;
 
@@ -113,12 +121,67 @@ public class ConnectionInfoExchangeUtils {
     }
 
     /**
-     * @return true if NFC is supported by the android version
+     * @return true if NFC HCE and reader mode are supported by the android version
      */
     public static Boolean isNfcSupported(Context context) {
-        // Android Beam has been removed in Android 10 (Q/29)
         return context.getPackageManager().hasSystemFeature(PackageManager.FEATURE_NFC) &&
-                Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN &&
-                Build.VERSION.SDK_INT < 29;
+                Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT;
+    }
+
+    private static final char[] HEX_ARRAY = "0123456789ABCDEF".toCharArray();
+    public static String bytesToHex(byte[] bytes) {
+        char[] hexChars = new char[bytes.length * 2];
+        for (int j = 0; j < bytes.length; j++) {
+            int v = bytes[j] & 0xFF;
+            hexChars[j * 2] = HEX_ARRAY[v >>> 4];
+            hexChars[j * 2 + 1] = HEX_ARRAY[v & 0x0F];
+        }
+        return new String(hexChars);
+    }
+
+    @RequiresApi(api = Build.VERSION_CODES.KITKAT)
+    public static void setNfcReaderMode(Activity activity, NfcAdapter nfcAdapter, boolean readerMode) {
+        if (readerMode) {
+            Bundle options = new Bundle();
+            options.putInt(NfcAdapter.EXTRA_READER_PRESENCE_CHECK_DELAY, 1000);
+            int flags = NfcAdapter.FLAG_READER_NFC_A;
+            flags |= NfcAdapter.FLAG_READER_SKIP_NDEF_CHECK;
+
+            nfcAdapter.enableReaderMode(activity, tag -> {
+                        Log.d("HACK", "tag discovered: " + tag);
+                        IsoDep isoDep = IsoDep.get(tag);
+                        if (isoDep == null) {
+                            Log.d("HACK", "IsoDep tag is null");
+                            return;
+                        }
+                        try {
+                            Log.d("HACK", "connect tag");
+                            isoDep.connect();
+                            byte[] resp = isoDep.transceive(NfcCardEmulationService.SELECT_AID);
+                            String response = ConnectionInfoExchangeUtils.bytesToHex(resp);
+                            Log.d("HACK", "tag response: " + response);
+                            Log.d("HACK", "tag response length: " + resp.length);
+//                            isoDep.close();
+                        } catch (IOException e) {
+                            Log.d("HACK", "connect tag error: " + e);
+                        }
+                    },
+                    flags,
+                    options
+            );
+            Log.d("HACK", "NFC reader only mode: enabled");
+        } else {
+            nfcAdapter.disableReaderMode(activity);
+            Log.d("HACK", "NFC reader only mode: disabled");
+        }
+        PackageManager packageManager = activity.getApplicationContext().getPackageManager();
+        ComponentName componentName = new ComponentName(activity.getApplicationContext().getPackageName(),
+                NfcCardEmulationService.class.getName());
+        packageManager.setComponentEnabledSetting(componentName,
+                readerMode ?
+                        PackageManager.COMPONENT_ENABLED_STATE_DISABLED :
+                        PackageManager.COMPONENT_ENABLED_STATE_ENABLED,
+                PackageManager.DONT_KILL_APP);
+        Log.d("HACK", "NFC HCE service: " + (readerMode ? "disabled" : "enabled"));
     }
 }
