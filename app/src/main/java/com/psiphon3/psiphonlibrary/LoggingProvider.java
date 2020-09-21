@@ -20,6 +20,7 @@
 package com.psiphon3.psiphonlibrary;
 
 import android.content.ContentProvider;
+import android.content.ContentUris;
 import android.content.ContentValues;
 import android.content.Context;
 import android.content.Intent;
@@ -33,6 +34,8 @@ import androidx.annotation.Nullable;
 import androidx.localbroadcastmanager.content.LocalBroadcastManager;
 
 import com.psiphon3.BuildConfig;
+import com.psiphon3.data.LogEntryDao;
+import com.psiphon3.data.MyDatabase;
 import com.psiphon3.psiphonlibrary.Utils.MyLog;
 
 import org.json.JSONArray;
@@ -51,6 +54,7 @@ import static com.psiphon3.LogsTabFragment.STATUS_ENTRY_AVAILABLE;
  */
 public class LoggingProvider extends ContentProvider {
     public static final Uri INSERT_URI = Uri.parse("content://" + BuildConfig.APPLICATION_ID + "." + LoggingProvider.class.getSimpleName());
+    private LogEntryDao logEntryDao;
 
     /**
      * JSON-ify the arguments to be used in a call to the LoggingProvider content provider.
@@ -123,6 +127,8 @@ public class LoggingProvider extends ContentProvider {
 
     @Override
     public boolean onCreate() {
+        logEntryDao = MyDatabase.getDatabase(getContext())
+                .logEntryDao();
         return false;
     }
 
@@ -150,7 +156,12 @@ public class LoggingProvider extends ContentProvider {
     @Nullable
     @Override
     public Uri insert(@NonNull Uri uri, ContentValues values) {
-        LogDatabaseHelper.insertLog(this.getContext(), values);
+//        LogDatabaseHelper.insertLog(this.getContext(), values);
+        logEntryDao.insert(LogEntryDao.
+                fromContentValues(values));
+            getContext().getContentResolver()
+                    .notifyChange(uri, null);
+
         return null;
     }
 
@@ -172,7 +183,7 @@ public class LoggingProvider extends ContentProvider {
     public static class LogDatabaseHelper extends SQLiteOpenHelper {
         private static final int DAYS_TO_STORE_LOGS = 2;
         private static final String DATABASE_NAME = "loggingprovider.db";
-        private static final int DATABASE_VERSION = 2;
+        private static final int DATABASE_VERSION = 3;
 
         private static final String TABLE_NAME = "log";
         private static final String COLUMN_NAME_ID = "_ID";

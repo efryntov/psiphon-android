@@ -10,10 +10,14 @@ import androidx.lifecycle.LifecycleObserver;
 import androidx.lifecycle.OnLifecycleEvent;
 
 import com.jakewharton.rxrelay2.PublishRelay;
+import com.psiphon3.data.LogEntry;
+import com.psiphon3.data.LogEntryRepository;
 import com.psiphon3.psiphonlibrary.LoggingProvider;
 import com.psiphon3.psiphonlibrary.TunnelServiceInteractor;
 import com.psiphon3.psiphonlibrary.UpstreamProxySettings;
 import com.psiphon3.psiphonlibrary.Utils;
+
+import java.util.List;
 
 import io.reactivex.BackpressureStrategy;
 import io.reactivex.Flowable;
@@ -27,6 +31,8 @@ public class MainActivityViewModel extends AndroidViewModel implements Lifecycle
     private PublishRelay<String> externalBrowserUrlRelay = PublishRelay.create();
     private PublishRelay<String> lastLogEntryRelay = PublishRelay.create();
     private boolean isFirstRun = true;
+    private LogEntryRepository logEntryRepository;
+
 
     public MainActivityViewModel(@NonNull Application application) {
         super(application);
@@ -34,9 +40,11 @@ public class MainActivityViewModel extends AndroidViewModel implements Lifecycle
         tunnelServiceInteractor = new TunnelServiceInteractor(application.getApplicationContext(), true);
         Utils.MyLog.setLogger(() -> context);
 
+        logEntryRepository = new LogEntryRepository(application);
+
         // remove logs from previous sessions if tunnel service is not running.
         if (!tunnelServiceInteractor.isServiceRunning(application.getApplicationContext())) {
-            LoggingProvider.LogDatabaseHelper.truncateLogs(context, true);
+//            LoggingProvider.LogDatabaseHelper.truncateLogs(context, true);
         }
     }
 
@@ -142,5 +150,13 @@ public class MainActivityViewModel extends AndroidViewModel implements Lifecycle
 
     public void setFirstRun(boolean firstRun) {
         isFirstRun = firstRun;
+    }
+
+    public Flowable<List<LogEntry>> getAllLogEntres() {
+        return logEntryRepository.getAllLogEntries();
+    }
+
+    public void insertLog(LogEntry logEntry) {
+        logEntryRepository.insert(logEntry);
     }
 }
