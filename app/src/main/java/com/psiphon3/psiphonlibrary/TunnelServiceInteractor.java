@@ -19,7 +19,6 @@
 
 package com.psiphon3.psiphonlibrary;
 
-import android.app.ActivityManager;
 import android.content.BroadcastReceiver;
 import android.content.ComponentName;
 import android.content.Context;
@@ -34,6 +33,7 @@ import android.os.Looper;
 import android.os.Message;
 import android.os.Messenger;
 import android.os.RemoteException;
+import android.os.SystemClock;
 
 import androidx.localbroadcastmanager.content.LocalBroadcastManager;
 
@@ -44,21 +44,24 @@ import com.psiphon3.TunnelState;
 
 import java.lang.ref.WeakReference;
 import java.util.ArrayList;
+import java.util.concurrent.TimeUnit;
 
 import io.reactivex.BackpressureStrategy;
 import io.reactivex.Flowable;
+import io.reactivex.Maybe;
 import io.reactivex.Observable;
 import io.reactivex.ObservableEmitter;
 import io.reactivex.ObservableOnSubscribe;
 import io.reactivex.disposables.Disposable;
 
-import static android.content.Context.ACTIVITY_SERVICE;
-
 public class TunnelServiceInteractor {
     private static final String SERVICE_STARTING_BROADCAST_INTENT = "SERVICE_STARTING_BROADCAST_INTENT";
+    private static final long MAX_BINDING_TIMEOUT_MILLIS = 2500;
+    private static long lastTimeoutCheckTimestampMillis;
+
     private final BroadcastReceiver broadcastReceiver;
-    private Relay<TunnelState> tunnelStateRelay = BehaviorRelay.<TunnelState>create().toSerialized();
-    private Relay<Boolean> dataStatsRelay = PublishRelay.<Boolean>create().toSerialized();
+    private final Relay<TunnelState> tunnelStateRelay = BehaviorRelay.<TunnelState>create().toSerialized();
+    private final Relay<Boolean> dataStatsRelay = PublishRelay.<Boolean>create().toSerialized();
 
     private final Messenger incomingMessenger = new Messenger(new IncomingMessageHandler(this));
 
@@ -86,24 +89,41 @@ public class TunnelServiceInteractor {
         LocalBroadcastManager.getInstance(context).registerReceiver(broadcastReceiver, intentFilter);
     }
 
+    private static long getBindingTimeout() {
+        long minBindTimeoutMillis = 1000;
+        // Adjust binding timeout based on the device's SDK version.
+        // The (not necessarily correct) idea is that a faster device runs a higher Android version.
+        if (Build.VERSION.SDK_INT >= 26) {
+            minBindTimeoutMillis = 600;
+        } else if (Build.VERSION.SDK_INT >= 22) {
+            minBindTimeoutMillis = 800;
+        }
+        // If previously recorded lastTimeoutCheckTimestampMillis then use it to determine optimal
+        // binding timeout value
+        if (lastTimeoutCheckTimestampMillis > 0) {
+            long elapsed = SystemClock.elapsedRealtime() - lastTimeoutCheckTimestampMillis;
+            // Calculate binding timeout based on the API level
+            return Math.max(MAX_BINDING_TIMEOUT_MILLIS - elapsed, minBindTimeoutMillis);
+        } else {
+            // Otherwise return MAX_BINDING_TIMEOUT_MILLIS and record lastTimeoutCheckTimestampMillis
+            // for the next time
+            lastTimeoutCheckTimestampMillis = SystemClock.elapsedRealtime();
+            return MAX_BINDING_TIMEOUT_MILLIS;
+        }
+    }
+
     public void onStart(Context context) {
         isStopped = false;
         tunnelStateRelay.accept(TunnelState.unknown());
-        String serviceName = getRunningService(context);
-        if (serviceName != null) {
-            final Intent bindingIntent = new Intent(context, TunnelVpnService.class);
-            bindTunnelService(context, bindingIntent);
-        } else {
-            tunnelStateRelay.accept(TunnelState.stopped());
-        }
+        bindTunnelService(context, new Intent(context, TunnelVpnService.class));
     }
 
     public void onStop(Context context) {
         isStopped = true;
         tunnelStateRelay.accept(TunnelState.unknown());
-        if (serviceBindingFactory != null) {
+        if (serviceMessengerDisposable != null && !serviceMessengerDisposable.isDisposed()) {
             sendServiceMessage(TunnelManager.ClientToServiceMessage.UNREGISTER.ordinal(), null);
-            serviceBindingFactory.unbind(context);
+            serviceMessengerDisposable.dispose();
         }
     }
 
@@ -133,6 +153,10 @@ public class TunnelServiceInteractor {
             }
             // Send tunnel starting service broadcast to all instances so they all bind
             LocalBroadcastManager.getInstance(context).sendBroadcast(intent.setAction(SERVICE_STARTING_BROADCAST_INTENT));
+
+            // Record starting tunnel time to determine optimal binding timeout later
+            lastTimeoutCheckTimestampMillis = SystemClock.elapsedRealtime();
+
         } catch (SecurityException | IllegalStateException e) {
             Utils.MyLog.g("startTunnelService failed with error: " + e);
             tunnelStateRelay.accept(TunnelState.stopped());
@@ -144,13 +168,20 @@ public class TunnelServiceInteractor {
         sendServiceMessage(TunnelManager.ClientToServiceMessage.STOP_SERVICE.ordinal(), null);
     }
 
-    public void scheduleRunningTunnelServiceRestart(Context context) {
-        String runningService = getRunningService(context);
-        if (runningService == null) {
-            // There is no running service, do nothing.
-            return;
-        }
-        commandTunnelRestart();
+    public void scheduleRunningTunnelServiceRestart() {
+        tunnelStateFlowable()
+                .filter(tunnelState -> !tunnelState.isUnknown())
+                .firstOrError()
+                .timeout(1000, TimeUnit.MILLISECONDS)
+                .toMaybe()
+                .onErrorResumeNext(Maybe.empty())
+                .doOnSuccess(tunnelState -> {
+                    // If the service is not running do not do anything.
+                    if (tunnelState.isRunning()) {
+                            commandTunnelRestart();
+                    }
+                })
+                .subscribe();
     }
 
     public void sendLocaleChangedMessage() {
@@ -168,34 +199,21 @@ public class TunnelServiceInteractor {
                 .toFlowable(BackpressureStrategy.LATEST);
     }
 
-    public boolean isServiceRunning(Context context) {
-        return getRunningService(context) != null;
-    }
-
-    private String getRunningService(Context context) {
-        ActivityManager manager = (ActivityManager) context.getSystemService(ACTIVITY_SERVICE);
-        if (manager == null) {
-            return null;
-        }
-        for (ActivityManager.RunningServiceInfo service : manager.getRunningServices(Integer.MAX_VALUE)) {
-            if (service.uid == android.os.Process.myUid() &&
-                    TunnelVpnService.class.getName().equals(service.service.getClassName())) {
-                return service.service.getClassName();
-            }
-        }
-        return null;
-    }
-
     private void commandTunnelRestart() {
         sendServiceMessage(TunnelManager.ClientToServiceMessage.RESTART_SERVICE.ordinal(), null);
     }
 
     private void bindTunnelService(Context context, Intent intent) {
-        serviceBindingFactory = new Rx2ServiceBindingFactory(context, intent);
-        serviceMessengerDisposable = serviceBindingFactory.getMessengerObservable()
-                .doOnComplete(() -> tunnelStateRelay.accept(TunnelState.stopped()))
-                .doOnComplete(() -> dataStatsRelay.accept(Boolean.FALSE))
-                .subscribe();
+        if (serviceBindingFactory == null) {
+            serviceBindingFactory = new Rx2ServiceBindingFactory(context, intent);
+        }
+        if (serviceMessengerDisposable == null || serviceMessengerDisposable.isDisposed()) {
+            serviceMessengerDisposable = serviceBindingFactory.getMessengerObservable(getBindingTimeout())
+                    .doOnComplete(() -> tunnelStateRelay.accept(TunnelState.stopped()))
+                    .doOnComplete(() -> dataStatsRelay.accept(Boolean.FALSE))
+                    .subscribe();
+        }
+
         Bundle data = new Bundle();
         data.putBoolean(TunnelManager.IS_CLIENT_AN_ACTIVITY, shouldRegisterAsActivity);
         sendServiceMessage(TunnelManager.ClientToServiceMessage.REGISTER.ordinal(), data);
@@ -205,9 +223,9 @@ public class TunnelServiceInteractor {
         if (serviceMessengerDisposable == null || serviceMessengerDisposable.isDisposed()) {
             return;
         }
-        serviceBindingFactory.getMessengerObservable()
-                .firstOrError()
-                .doOnSuccess(messenger -> {
+        serviceBindingFactory.getMessengerObservable(getBindingTimeout())
+                .take(1)
+                .doOnNext(messenger -> {
                     try {
                         Message msg = Message.obtain(null, what);
                         msg.replyTo = incomingMessenger;
@@ -322,8 +340,15 @@ public class TunnelServiceInteractor {
                     .refCount();
         }
 
-        Observable<Messenger> getMessengerObservable() {
-            return messengerObservable;
+        Observable<Messenger> getMessengerObservable(long timeout) {
+            // A wrapper for the messenger observable that just completes if the first value is not
+            // emitted within {timeout} milliseconds
+            return messengerObservable
+                    .timeout(
+                            Observable.timer(timeout, TimeUnit.MILLISECONDS),
+                            ignored -> Observable.never()
+                    )
+                    .onErrorResumeNext(Observable.empty());
         }
 
         void unbind(Context context) {

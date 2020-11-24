@@ -32,13 +32,13 @@ public class MainActivityViewModel extends AndroidViewModel implements Lifecycle
         tunnelServiceInteractor = new TunnelServiceInteractor(getApplication(), true);
     }
 
-    @OnLifecycleEvent(Lifecycle.Event.ON_STOP)
-    protected void onLifeCycleStop() {
+    @OnLifecycleEvent(Lifecycle.Event.ON_PAUSE)
+    protected void onLifeCyclePause() {
         tunnelServiceInteractor.onStop(getApplication());
     }
 
-    @OnLifecycleEvent(Lifecycle.Event.ON_START)
-    protected void onLifeCycleStart() {
+    @OnLifecycleEvent(Lifecycle.Event.ON_RESUME)
+    protected void onLifeCycleResume() {
         tunnelServiceInteractor.onStart(getApplication());
     }
 
@@ -65,7 +65,7 @@ public class MainActivityViewModel extends AndroidViewModel implements Lifecycle
     }
 
     public void restartTunnelService() {
-        tunnelServiceInteractor.scheduleRunningTunnelServiceRestart(getApplication());
+        tunnelServiceInteractor.scheduleRunningTunnelServiceRestart();
     }
 
     public void sendLocaleChangedMessage() {
@@ -133,9 +133,5 @@ public class MainActivityViewModel extends AndroidViewModel implements Lifecycle
 
     public void setFirstRun(boolean firstRun) {
         isFirstRun = firstRun;
-    }
-
-    public boolean isServiceRunning(Context context) {
-        return tunnelServiceInteractor.isServiceRunning(context);
     }
 }

@@ -108,8 +108,16 @@ public class MainActivity extends LocalizedActivities.AppCompatActivity {
         getLifecycle().addObserver(viewModel);
 
         // On first run remove logs from previous sessions if tunnel service is not running.
-        if (viewModel.isFirstRun() && !viewModel.isServiceRunning(getApplication())) {
-            LoggingProvider.LogDatabaseHelper.truncateLogs(getApplication(), true);
+        if (viewModel.isFirstRun()) {
+            compositeDisposable.add(viewModel.tunnelStateFlowable()
+                    .filter(tunnelState -> !tunnelState.isUnknown())
+                    .firstOrError()
+                    .doOnSuccess(tunnelState -> {
+                        if (tunnelState.isStopped()) {
+                            LoggingProvider.LogDatabaseHelper.truncateLogs(getApplication(), true);
+                        }
+                    })
+                    .subscribe());
         }
 
         // The LoggingObserver will run in a separate thread
