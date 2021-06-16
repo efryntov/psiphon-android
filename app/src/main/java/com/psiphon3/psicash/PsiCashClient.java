@@ -66,7 +66,7 @@ public class PsiCashClient {
     private static PsiCashClient INSTANCE = null;
     private Context appContext;
 
-    private final PsiCashLib psiCashLib;
+    private final PsiCashLibWrapper psiCashLibWrapper;
     private int httpProxyPort;
     private final OkHttpClient okHttpClient;
     private final SharedPreferences sharedPreferences;
@@ -80,7 +80,7 @@ public class PsiCashClient {
         customDataCached = multiProcessPreferences.getString(ctx.getString(R.string.persistentPsiCashCustomData), "");
 
         httpProxyPort = 0;
-        psiCashLib = new PsiCashLib();
+        psiCashLibWrapper = new PsiCashLibWrapper();
         okHttpClient = new OkHttpClient.Builder()
                 .retryOnConnectionFailure(false)
                 .proxySelector(new ProxySelector() {
@@ -132,14 +132,14 @@ public class PsiCashClient {
             return result;
         };
 
-        PsiCashLib.Error err = psiCashLib.init(ctx.getFilesDir().toString(), httpRequester, false);
+        PsiCashLib.Error err = psiCashLibWrapper.init(ctx.getFilesDir().toString(), httpRequester, false);
 
         if (err != null) {
             String errorMessage = "Could not initialize PsiCash lib: error: " + err.message;
             Utils.MyLog.g("PsiCash: " + errorMessage);
             if (err.critical) {
                 // Reset the datastore and throw original error.
-                psiCashLib.init(ctx.getFilesDir().toString(), httpRequester, true);
+                psiCashLibWrapper.init(ctx.getFilesDir().toString(), httpRequester, true);
                 throw new PsiCashException.Critical(errorMessage, appContext.getString(R.string.psicash_critical_error_reset_message));
             } else {
                 throw new PsiCashException.Recoverable(errorMessage);
@@ -165,7 +165,7 @@ public class PsiCashClient {
         metaData.put("client_region", connectionData.clientRegion());
         metaData.put("sponsor_id", connectionData.sponsorId());
         for (Map.Entry<String, String> h : metaData.entrySet()) {
-            PsiCashLib.Error error = psiCashLib.setRequestMetadataItem(h.getKey(), h.getValue());
+            PsiCashLib.Error error = psiCashLibWrapper.setRequestMetadataItem(h.getKey(), h.getValue());
             if (error != null) {
                 String errorMessage = error.message;
                 if (error.critical) {
@@ -185,7 +185,7 @@ public class PsiCashClient {
     }
 
     public String modifiedHomePageURL(String originaUrl) throws PsiCashException {
-        PsiCashLib.ModifyLandingPageResult modifyLandingPageResult = psiCashLib.modifyLandingPage(originaUrl);
+        PsiCashLib.ModifyLandingPageResult modifyLandingPageResult = psiCashLibWrapper.modifyLandingPage(originaUrl);
         if (modifyLandingPageResult.error == null) {
             return modifyLandingPageResult.url;
         } else {
@@ -199,7 +199,7 @@ public class PsiCashClient {
     }
 
     public boolean hasValidTokens() throws PsiCashException {
-        PsiCashLib.ValidTokenTypesResult validTokenTypesResult = psiCashLib.validTokenTypes();
+        PsiCashLib.ValidTokenTypesResult validTokenTypesResult = psiCashLibWrapper.validTokenTypes();
         if (validTokenTypesResult.error == null) {
             return validTokenTypesResult.validTokenTypes.size() > 0;
         } else {
@@ -213,7 +213,7 @@ public class PsiCashClient {
     }
 
     private boolean hasToken(PsiCashLib.TokenType tokenType) throws PsiCashException {
-        PsiCashLib.ValidTokenTypesResult validTokenTypesResult = psiCashLib.validTokenTypes();
+        PsiCashLib.ValidTokenTypesResult validTokenTypesResult = psiCashLibWrapper.validTokenTypes();
         if (validTokenTypesResult.error == null) {
             return validTokenTypesResult.validTokenTypes.contains(tokenType);
         } else {
@@ -246,7 +246,7 @@ public class PsiCashClient {
     private PsiCashModel.PsiCash psiCashModelFromLib() throws PsiCashException {
         PsiCashModel.PsiCash.Builder builder = PsiCashModel.PsiCash.builder();
 
-        PsiCashLib.GetDiagnosticInfoResult diagnosticInfoResult = psiCashLib.getDiagnosticInfo();
+        PsiCashLib.GetDiagnosticInfoResult diagnosticInfoResult = psiCashLibWrapper.getDiagnosticInfo();
         if (diagnosticInfoResult.error != null) {
             String errorMessage = "PsiCashLib.GetDiagnosticInfoResult error: " + diagnosticInfoResult.error.message;
             Utils.MyLog.g("PsiCash: " + errorMessage);
@@ -258,7 +258,7 @@ public class PsiCashClient {
         }
         builder.diagnosticInfo(diagnosticInfoResult.jsonString);
 
-        PsiCashLib.BalanceResult balanceResult = psiCashLib.balance();
+        PsiCashLib.BalanceResult balanceResult = psiCashLibWrapper.balance();
         if (balanceResult.error != null) {
             String errorMessage = "PsiCashLib.BalanceResult error: " + balanceResult.error.message;
             Utils.MyLog.g("PsiCash: " + errorMessage);
@@ -270,7 +270,7 @@ public class PsiCashClient {
         }
         builder.balance(balanceResult.balance);
 
-        PsiCashLib.GetPurchasePricesResult getPurchasePricesResult = psiCashLib.getPurchasePrices();
+        PsiCashLib.GetPurchasePricesResult getPurchasePricesResult = psiCashLibWrapper.getPurchasePrices();
         if (getPurchasePricesResult.error != null) {
             String errorMessage = "PsiCashLib.GetPurchasePricesResult error: " + balanceResult.error.message;
             Utils.MyLog.g("PsiCash: " + errorMessage);
@@ -282,7 +282,7 @@ public class PsiCashClient {
         }
         builder.purchasePrices(getPurchasePricesResult.purchasePrices);
 
-        PsiCashLib.GetPurchasesResult getPurchasesResult = psiCashLib.getPurchases();
+        PsiCashLib.GetPurchasesResult getPurchasesResult = psiCashLibWrapper.getPurchases();
         if (getPurchasesResult.error != null) {
             String errorMessage = "PsiCashLib.GetPurchasesResult error: " + getPurchasesResult.error.message;
             Utils.MyLog.g("PsiCash: " + errorMessage);
@@ -298,7 +298,7 @@ public class PsiCashClient {
         }
 
         if (hasEarnerToken()) {
-            PsiCashLib.GetRewardedActivityDataResult rewardedActivityData = psiCashLib.getRewardedActivityData();
+            PsiCashLib.GetRewardedActivityDataResult rewardedActivityData = psiCashLibWrapper.getRewardedActivityData();
             if (rewardedActivityData.error == null) {
                 String customData = rewardedActivityData.data;
                 if (TextUtils.isEmpty(customDataCached) || !customDataCached.equals(customData)) {
@@ -356,7 +356,7 @@ public class PsiCashClient {
                             setOkHttpClientHttpProxyPort(connectionData.httpPort());
 
                             PsiCashLib.NewExpiringPurchaseResult result =
-                                    psiCashLib.newExpiringPurchase(transactionClass,
+                                    psiCashLibWrapper.newExpiringPurchase(transactionClass,
                                             distinguisher, price);
 
                             if (result.error != null) {
@@ -446,7 +446,7 @@ public class PsiCashClient {
         return Completable.create(emitter -> {
             setOkHttpClientHttpProxyPort(connectionData.httpPort());
             setPsiCashRequestMetaData(connectionData);
-            PsiCashLib.RefreshStateResult result = psiCashLib.refreshState(getPurchaseClasses());
+            PsiCashLib.RefreshStateResult result = psiCashLibWrapper.refreshState(getPurchaseClasses());
             if (result.error != null) {
                 if (result.error.critical) {
                     if (!emitter.isDisposed()) {
@@ -505,12 +505,12 @@ public class PsiCashClient {
     Single<PsiCashModel.PsiCash> removePurchases(List<String> purchasesToRemove) {
         return Single.just(purchasesToRemove)
                 .observeOn(Schedulers.io())
-                .flatMap(p -> Completable.fromAction(() -> psiCashLib.removePurchases(p))
+                .flatMap(p -> Completable.fromAction(() -> psiCashLibWrapper.removePurchases(p))
                         .andThen(getPsiCashLocalSingle()));
     }
 
     public List<PsiCashLib.Purchase> getPurchases() throws PsiCashException {
-        PsiCashLib.GetPurchasesResult getPurchasesResult = psiCashLib.getPurchases();
+        PsiCashLib.GetPurchasesResult getPurchasesResult = psiCashLibWrapper.getPurchases();
         if (getPurchasesResult.error == null) {
             return getPurchasesResult.purchases;
         } else {
@@ -522,4 +522,11 @@ public class PsiCashClient {
             }
         }
     }
+        public static class PsiCashLibWrapper extends PsiCashLib {
+        @Override
+        public Error init(String fileStoreRoot, HTTPRequester httpRequester, boolean forceReset) {
+            return init(fileStoreRoot, httpRequester, forceReset, true);
+        }
+    }
+
 }

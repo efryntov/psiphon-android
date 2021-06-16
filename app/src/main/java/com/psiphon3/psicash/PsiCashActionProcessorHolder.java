@@ -66,7 +66,7 @@ class PsiCashActionProcessorHolder {
                 actions.switchMap(action -> {
                             return psiCashClientSingle
                                     .flatMap(psiCashClient -> psiCashClient.getPsiCashSingle(action.tunnelStateFlowable()))
-                                    .map(PsiCashResult.GetPsiCash::success)
+                                    .map(model -> PsiCashResult.GetPsiCash.success(model))
                                     .onErrorReturn(PsiCashResult.GetPsiCash::failure)
                                     .toObservable()
                                     .startWith(PsiCashResult.GetPsiCash.inFlight());

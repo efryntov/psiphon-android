@@ -381,7 +381,7 @@ public class MainActivity extends LocalizedActivities.AppCompatActivity {
 
     private void displayBrowser(Context context, String urlString) {
         // PsiCash modify URLs by default
-        displayBrowser(context, urlString, true);
+        displayBrowser(context, "https://landing.dev.psi.cash/dev-index.html", true);
     }
 
     private void displayBrowser(Context context, String urlString, boolean shouldPsiCashModifyUrls) {
