@@ -1459,8 +1459,11 @@ public class TunnelManager implements PsiphonTunnel.HostService, PurchaseVerifie
             hasBoostOrSubscription = false;
             for (Authorization a : acceptedAuthorizations) {
                 if ("google-subscription".equals(a.accessType()) ||
+                        "google-subscription-test".equals(a.accessType()) ||
                         "google-subscription-limited".equals(a.accessType()) ||
-                        "speed-boost".equals(a.accessType())) {
+                        "google-subscription-limited-test".equals(a.accessType()) ||
+                        "speed-boost".equals(a.accessType()) ||
+                        "speed-boost-test".equals(a.accessType())) {
                     hasBoostOrSubscription = true;
                     // Also cancel disallowed traffic alert notification
                     cancelDisallowedTrafficAlertNotification();
