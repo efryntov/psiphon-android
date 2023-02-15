@@ -119,6 +119,7 @@ public class MainActivity extends LocalizedActivities.AppCompatActivity {
     private AlertDialog upstreamProxyErrorAlertDialog;
     private AlertDialog disallowedTrafficAlertDialog;
     private PurchaseRequiredDialog purchaseRequiredDialog;
+    private AppUpdateHelper appUpdateHelper;
 
 
     @Override
@@ -218,11 +219,23 @@ public class MainActivity extends LocalizedActivities.AppCompatActivity {
             // Schedule handling current intent when the main view is fully inflated
             getWindow().getDecorView().post(() -> HandleCurrentIntent(getIntent()));
         }
+
+        appUpdateHelper = new AppUpdateHelper(this);
+        // Run app update check only if the VPN data disclosure has been agreed to
+        // and the unsafe traffic alerts preference has been selected
+        if (multiProcessPreferences.getBoolean(getString(R.string.vpnServiceDataCollectionDisclosureAccepted), false)) {
+            try {
+                multiProcessPreferences.getBoolean(getString(R.string.unsafeTrafficAlertsPreference));
+                appUpdateHelper.checkAppUpdate();
+            } catch (ItemNotFoundException ignored) {
+            }
+        }
     }
 
     @Override
     public void onDestroy() {
         compositeDisposable.dispose();
+        appUpdateHelper.onDestroy();
         super.onDestroy();
     }
 
@@ -273,6 +286,7 @@ public class MainActivity extends LocalizedActivities.AppCompatActivity {
                         .andThen(autoStartMaybe())
                         .doOnSuccess(__ -> startTunnel())
                         .subscribe());
+        appUpdateHelper.onResume();
     }
 
     // Completes right away if unsafe traffic alerts preference exists, otherwise displays an alert

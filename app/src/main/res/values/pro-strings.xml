@@ -542,4 +542,6 @@
 
     <!-- Do not translate or transliterate 'PsiCash'. PsiCash is a unit of currency here. Reorder the format specifier '%s' if in the translated language ordering of unit and amount is different from English. -->
     <string name="psicash_price_format">%s PsiCash</string>
+    <string name="app_update_downloaded">An update just been downloaded.</string>
+    <string name="app_update_restart">Restart</string>
 </resources>

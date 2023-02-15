@@ -177,5 +177,7 @@ dependencies {
     implementation "androidx.paging:paging-runtime:$rootProject.ext.pagingVersion"
     implementation "androidx.paging:paging-rxjava2:$rootProject.ext.pagingVersion"
 
+    implementation"com.google.android.play:app-update:$rootProject.ext.appUpdateVersion"
+
     coreLibraryDesugaring "com.android.tools:desugar_jdk_libs:$rootProject.ext.coreLibraryDesugaringVersion"
 }
