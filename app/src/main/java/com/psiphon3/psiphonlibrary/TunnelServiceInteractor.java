@@ -48,6 +48,8 @@ import com.psiphon3.log.MyLog;
 
 import java.lang.ref.WeakReference;
 import java.util.ArrayList;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 
 import io.reactivex.BackpressureStrategy;
 import io.reactivex.Completable;
@@ -70,6 +72,7 @@ public class TunnelServiceInteractor {
     private boolean shouldRegisterAsActivity = false;
     private Disposable serviceMessengerDisposable;
     private Disposable restartServiceDisposable;
+    private NfcExportHelper nfcExportHelper;
 
     public TunnelServiceInteractor(Context context, boolean registerAsActivity) {
         this.shouldRegisterAsActivity = registerAsActivity;
@@ -89,6 +92,11 @@ public class TunnelServiceInteractor {
         };
         LocalBroadcastManager.getInstance(context).registerReceiver(broadcastReceiver, intentFilter);
         tunnelStateRelay.accept(TunnelState.unknown());
+    }
+
+    // setter for nfcExportListener
+    public void setNfcExportListener(NfcExportHelper nfcExportHelper) {
+        this.nfcExportHelper = nfcExportHelper;
     }
 
     public void onStart(Context context) {
@@ -198,6 +206,38 @@ public class TunnelServiceInteractor {
     public void commandTunnelRestart() {
         sendServiceMessageCompletable(TunnelManager.ClientToServiceMessage.RESTART_TUNNEL.ordinal(), null)
                 .subscribe();
+    }
+
+    // Send a message to the service to import nfc data
+    public void importNfcData(String nfcData) {
+        Bundle data = new Bundle();
+        data.putString(TunnelManager.DATA_NFC_CONNECTION_INFO_EXCHANGE, nfcData);
+        sendServiceMessageCompletable(TunnelManager.ClientToServiceMessage.NFC_CONNECTION_INFO_EXCHANGE_IMPORT.ordinal(), data)
+                .subscribe();
+    }
+
+    // Send a message to the service to export nfc data, wait two seconds for the response with
+    // CountDownLatch, and return the payload.
+    public String exportNfcData() {
+        CountDownLatch latch = new CountDownLatch(1);
+        nfcExportHelper = new NfcExportHelper() {
+            @Override
+            public void onNfcExportResponse(String s) {
+                setPayload(s);
+                latch.countDown();
+            }
+        };
+        
+        setNfcExportListener(nfcExportHelper);
+        sendServiceMessageCompletable(TunnelManager.ClientToServiceMessage.NFC_CONNECTION_INFO_EXCHANGE_EXPORT.ordinal(), null)
+                .subscribe();
+        try {
+            latch.await(2, TimeUnit.SECONDS);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+        setNfcExportListener(null);
+        return nfcExportHelper.getPayload();
     }
 
     public void bindTunnelService(Context context) {
@@ -314,6 +354,15 @@ public class TunnelServiceInteractor {
                     getDataTransferStatsFromBundle(data);
                     tunnelServiceInteractor.dataStatsRelay.accept(state.isConnected());
                     break;
+                case NFC_CONNECTION_INFO_EXCHANGE_EXPORT:
+                    if (tunnelServiceInteractor.nfcExportHelper != null) {
+                        if (data != null) {
+                            tunnelServiceInteractor.nfcExportHelper.onNfcExportResponse(data.getString(TunnelManager.DATA_NFC_CONNECTION_INFO_EXCHANGE));
+                        } else {
+                            tunnelServiceInteractor.nfcExportHelper.onNfcExportResponse(null);
+                        }
+                    }
+                    break;
                 default:
                     super.handleMessage(msg);
             }
@@ -375,5 +424,18 @@ public class TunnelServiceInteractor {
                 this.subscriber = observableEmitter;
             }
         }
+    }
+
+    abstract static class NfcExportHelper {
+        public void setPayload(String payload) {
+            this.payload = payload;
+        }
+
+        private String payload;
+        public String getPayload() {
+            return payload;
+        }
+        // method to be called when the NFC export is complete
+        abstract void  onNfcExportResponse(String response);
     }
 }
