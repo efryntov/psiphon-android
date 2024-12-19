@@ -51,9 +51,9 @@ import androidx.core.content.PermissionChecker;
 
 import com.jakewharton.rxrelay2.PublishRelay;
 import com.psiphon3.Location;
+import com.psiphon3.PackageHelper;
 import com.psiphon3.PsiphonCrashService;
 import com.psiphon3.R;
-import com.psiphon3.PackageHelper;
 import com.psiphon3.TunnelState;
 import com.psiphon3.VpnManager;
 import com.psiphon3.log.MyLog;
@@ -125,6 +125,7 @@ public class TunnelManager implements PsiphonTunnel.HostService, VpnManager.VpnS
     static final String DATA_TUNNEL_STATE_CLIENT_REGION = "clientRegion";
     static final String DATA_TUNNEL_STATE_SPONSOR_ID = "sponsorId";
     public static final String DATA_TUNNEL_STATE_HOME_PAGES = "homePages";
+    public static final String DATA_TUNNEL_STATE_IS_PERSONAL_PAIRING_MODE = "isPersonalPairingMode";
     static final String DATA_TRANSFER_STATS_CONNECTED_TIME = "dataTransferStatsConnectedTime";
     static final String DATA_TRANSFER_STATS_TOTAL_BYTES_SENT = "dataTransferStatsTotalBytesSent";
     static final String DATA_TRANSFER_STATS_TOTAL_BYTES_RECEIVED = "dataTransferStatsTotalBytesReceived";
@@ -146,6 +147,7 @@ public class TunnelManager implements PsiphonTunnel.HostService, VpnManager.VpnS
         boolean disableTimeouts = false;
         String sponsorId = EmbeddedValues.SPONSOR_ID;
         String deviceLocation = "";
+        String personalPairingCompartmentId = "";
     }
 
     private Config m_tunnelConfig;
@@ -165,6 +167,7 @@ public class TunnelManager implements PsiphonTunnel.HostService, VpnManager.VpnS
         String clientRegion = "";
         String sponsorId = "";
         ArrayList<String> homePages = new ArrayList<>();
+        public boolean isPersonalPairingMode;
 
         boolean isConnected() {
             return networkConnectionState == TunnelState.ConnectionData.NetworkConnectionState.CONNECTED;
@@ -326,7 +329,6 @@ public class TunnelManager implements PsiphonTunnel.HostService, VpnManager.VpnS
                     }
                     return Observable.just(networkConnectionState);
                 })
-                .distinctUntilChanged()
                 .doOnNext(networkConnectionState -> {
                     m_tunnelState.networkConnectionState = networkConnectionState;
                     sendClientMessage(ServiceToClientMessage.TUNNEL_CONNECTION_STATE.ordinal(), getTunnelStateBundle());
@@ -508,6 +510,18 @@ public class TunnelManager implements PsiphonTunnel.HostService, VpnManager.VpnS
             tunnelConfig.disableTimeouts = multiProcessPreferences
                     .getBoolean(getContext().getString(R.string.disableTimeoutsPreference),
                             false);
+            boolean personalPairingModePreference = multiProcessPreferences.getBoolean(
+                    getContext().getString(R.string.personalPairingEnabledPreference), false);
+
+            // If personal pairing is enabled, get the compartment ID from the preferences
+            String compartmentId = "";
+            if (personalPairingModePreference) {
+                compartmentId = multiProcessPreferences.getString(getContext().getString(R.string.personalPairingCompartmentIdPreference), "");
+                if (TextUtils.isEmpty(compartmentId)) {
+                    MyLog.w("TunnelManager::getTunnelConfigSingle: personal pairing is enabled but the compartment ID is empty.");
+                }
+            }
+            tunnelConfig.personalPairingCompartmentId = compartmentId;
             return tunnelConfig;
         });
 
@@ -537,7 +551,7 @@ public class TunnelManager implements PsiphonTunnel.HostService, VpnManager.VpnS
         int defaults = 0;
 
         if (networkConnectionState == TunnelState.ConnectionData.NetworkConnectionState.CONNECTED) {
-            iconID = R.drawable.notification_icon_connected;
+            iconID  = isPersonalPairingMode() ? R.drawable.notification_icon_connected_pp : R.drawable.notification_icon_connected;
             switch (vpnAppsExclusionSetting) {
                 case INCLUDE_APPS:
                     contentText = getContext().getResources()
@@ -559,7 +573,7 @@ public class TunnelManager implements PsiphonTunnel.HostService, VpnManager.VpnS
             contentText = getContext().getString(R.string.waiting_for_network_connectivity);
             ticker = getContext().getText(R.string.waiting_for_network_connectivity);
         } else {
-            iconID = R.drawable.notification_icon_connecting_animation;
+            iconID = isPersonalPairingMode() ? R.drawable.notification_icon_connecting_animation_pp : R.drawable.notification_icon_connecting_animation;;
             contentText = getContext().getString(R.string.psiphon_service_notification_message_connecting);
             ticker = getContext().getText(R.string.psiphon_service_notification_message_connecting);
         }
@@ -606,6 +620,10 @@ public class TunnelManager implements PsiphonTunnel.HostService, VpnManager.VpnS
                 .addAction(notificationAction)
                 .setOngoing(true)
                 .build();
+    }
+
+    private boolean isPersonalPairingMode() {
+        return m_tunnelConfig != null && !TextUtils.isEmpty(m_tunnelConfig.personalPairingCompartmentId);
     }
 
     /**
@@ -863,6 +881,7 @@ public class TunnelManager implements PsiphonTunnel.HostService, VpnManager.VpnS
         data.putString(DATA_TUNNEL_STATE_CLIENT_REGION, m_tunnelState.clientRegion);
         data.putString(DATA_TUNNEL_STATE_SPONSOR_ID, m_tunnelState.sponsorId);
         data.putStringArrayList(DATA_TUNNEL_STATE_HOME_PAGES, m_tunnelState.homePages);
+        data.putBoolean(DATA_TUNNEL_STATE_IS_PERSONAL_PAIRING_MODE, isPersonalPairingMode());
         return data;
     }
 
@@ -1328,14 +1347,9 @@ public class TunnelManager implements PsiphonTunnel.HostService, VpnManager.VpnS
 
             json.put("EmitBytesTransferred", true);
 
-            // Set the personal pairing compartment ID if personal pairing is enabled
-            if (mp.getBoolean(context.getString(R.string.personalPairingEnabledPreference), false)) {
-                String inproxyClientPersonalCompartmentId = mp.getString(context.getString(R.string.personalPairingCompartmentIdPreference), "");
-                if (inproxyClientPersonalCompartmentId == null || !inproxyClientPersonalCompartmentId.isEmpty()) {
-                    json.put("InproxyClientPersonalCompartmentID", inproxyClientPersonalCompartmentId);
-                } else {
-                    MyLog.w("TunnelManager::buildTunnelCoreConfig: personal pairing is enabled but compartment ID is not set");
-                }
+            // Set the personal pairing config if config has a non-empty personal pairing compartment ID
+            if (!TextUtils.isEmpty(tunnelConfig.personalPairingCompartmentId)) {
+                json.put("PersonalPairingCompartmentId", tunnelConfig.personalPairingCompartmentId);
             }
 
             return json.toString();
@@ -1353,8 +1367,7 @@ public class TunnelManager implements PsiphonTunnel.HostService, VpnManager.VpnS
                         ((BiFunction<TunnelState.ConnectionData.NetworkConnectionState, Boolean,
                                 Pair<TunnelState.ConnectionData.NetworkConnectionState, Boolean>>) Pair::new))
                 .subscribeOn(Schedulers.io())
-                .observeOn(AndroidSchedulers.mainThread())
-                .distinctUntilChanged();
+                .observeOn(AndroidSchedulers.mainThread());
     }
 
     /**

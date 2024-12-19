@@ -290,6 +290,7 @@ public class TunnelServiceInteractor {
         if (homePages != null && tunnelState.isConnected()) {
             tunnelState.homePages = homePages;
         }
+        tunnelState.isPersonalPairingMode = data.getBoolean(TunnelManager.DATA_TUNNEL_STATE_IS_PERSONAL_PAIRING_MODE);
         return tunnelState;
     }
 
@@ -342,6 +343,7 @@ public class TunnelServiceInteractor {
                                 .setSponsorId(state.sponsorId)
                                 .setHttpPort(state.listeningLocalHttpProxyPort)
                                 .setHomePages(state.homePages)
+                                .setPersonalPairingEnabled(state.isPersonalPairingMode)
                                 .build();
                         tunnelState = TunnelState.running(connectionData);
                     } else {

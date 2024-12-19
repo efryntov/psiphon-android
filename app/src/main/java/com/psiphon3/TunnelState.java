@@ -57,6 +57,8 @@ public abstract class TunnelState {
         @Nullable
         public abstract ArrayList<String> homePages();
 
+        public abstract boolean personalPairingEnabled();
+
         public static Builder builder() {
             return new AutoValue_TunnelState_ConnectionData.Builder()
                     .setNetworkConnectionState(NetworkConnectionState.CONNECTING)
@@ -65,7 +67,8 @@ public abstract class TunnelState {
                     .setPropagationChannelId("")
                     .setSponsorId("")
                     .setHttpPort(0)
-                    .setHomePages(null);
+                    .setHomePages(null)
+                    .setPersonalPairingEnabled(false);
         }
 
         @AutoValue.Builder
@@ -83,6 +86,8 @@ public abstract class TunnelState {
             public abstract Builder setHttpPort(int port);
 
             public abstract Builder setHomePages(@Nullable ArrayList<String> homePages);
+
+            public abstract Builder setPersonalPairingEnabled(boolean value);
 
             public abstract ConnectionData build();
         }
