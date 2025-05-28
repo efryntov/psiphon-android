@@ -614,4 +614,12 @@
     <!-- Access status label shown on the home tab when the user is running the Conduit app on the same device which may provide enhanced access to Psiphon.
      Do not translate or transliterate 'Conduit'. -->
     <string name="conduit_active">Conduit: Active</string>
+
+    <!-- Title of the view shown when presenting the app unlock option to install an app in order to unlock Psiphon Pro UI features.
+    The %s will be replaced with the app name passed to the string resource. -->
+    <string name="install_app_to_unlock_title">Install %s</string>
+
+    <!-- Description of the view shown when presenting the app unlock option to install an app in order to unlock Psiphon Pro UI features.
+    The %s will be replaced with the app name passed to the string resource. -->
+    <string name="install_app_to_unlock_description">Install %s from the Play Store to stay connected to Psiphon for free</string>
 </resources>

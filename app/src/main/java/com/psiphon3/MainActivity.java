@@ -324,6 +324,7 @@ public class MainActivity extends LocalizedActivities.AppCompatActivity {
 
     @Override
     public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
         if (requestCode == REQUEST_CODE_PERMISSIONS) {
             // There could be multiple permissions requested, check if we were granted a location
             // one and start location update if so.
@@ -563,16 +564,6 @@ public class MainActivity extends LocalizedActivities.AppCompatActivity {
         try {
             Intent intent = new Intent(activity, PaymentChooserActivity.class);
             intent.putExtra("tabIndex", tabIndex);
-            intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
-            activity.startActivity(intent);
-        } catch(RuntimeException ignored) {
-        }
-    }
-
-    public static void unlockWithSubscription(FragmentActivity activity) {
-        try {
-            Intent intent = new Intent(activity, PaymentChooserActivity.class);
-            intent.putExtra(PaymentChooserActivity.INTENT_EXTRA_UNLOCK_REQUIRED, true);
             intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
             activity.startActivity(intent);
         } catch(RuntimeException ignored) {
@@ -840,7 +831,7 @@ public class MainActivity extends LocalizedActivities.AppCompatActivity {
                 }
 
                 unlockRequiredDialog = new UnlockRequiredDialog.Builder(this, this)
-                        .setUnlockOptionsMap(UnlockOptions.fromBundle(intent.getExtras()))
+                        .setUnlockOptions(UnlockOptions.fromBundle(intent.getExtras()))
                         .setDisconnectTunnelRunnable(() -> compositeDisposable.add(
                                 getTunnelServiceInteractor().tunnelStateFlowable()
                                         .filter(state -> !state.isUnknown())
@@ -852,10 +843,6 @@ public class MainActivity extends LocalizedActivities.AppCompatActivity {
                                         })
                                         .subscribe()
                         ))
-                        .setSubscribeClickListener(v -> {
-                            MainActivity.unlockWithSubscription(MainActivity.this);
-                            unlockRequiredDialog.dismiss();
-                        })
                         .show();
 
                 // Auto-dismiss the unlock dialog if the tunnel is stopped by something other than
