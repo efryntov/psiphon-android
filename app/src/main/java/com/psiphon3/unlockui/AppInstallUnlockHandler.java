@@ -72,7 +72,7 @@ public class AppInstallUnlockHandler extends UnlockOptionHandler {
     private void checkIfAppInstalled() {
         if (inflatedView != null && isAppInstalled(inflatedView.getContext())) {
             // App is now installed, dismiss dialog
-            MyLog.i("AppInstallUnlockHandler", "App " + appEntry.appName + " is installed, dismissing dialog.");
+            MyLog.i("AppInstallUnlockHandler: app " + appEntry.appName + " is installed, dismissing dialog.");
             dismissDialogRunnable.run();
         }
     }
@@ -92,11 +92,11 @@ public class AppInstallUnlockHandler extends UnlockOptionHandler {
         intent.setPackage("com.android.vending");
 
         try {
-            MyLog.i("AppInstallUnlockHandler", "Opening Play Store for app: " + appEntry.appName);
+            MyLog.i("AppInstallUnlockHandler: opening Play Store for app: " + appEntry.appName);
             context.startActivity(intent);
         } catch (ActivityNotFoundException e) {
             // Fallback to browser if Play Store not available
-            MyLog.w("AppInstallUnlockHandler", "Play Store not found, opening in browser: " + appEntry.playStoreUrl);
+            MyLog.w("AppInstallUnlockHandler: Play Store not found, opening in browser: " + appEntry.playStoreUrl);
             intent.setPackage(null);
             context.startActivity(intent);
         }

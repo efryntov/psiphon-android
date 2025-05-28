@@ -117,7 +117,7 @@ public class ConduitUnlockHandler extends UnlockOptionHandler {
                         .subscribe(
                                 this::updateConduitUI,
                                 throwable -> {
-                                    MyLog.e("ConduitUnlockHandler: Error observing conduit state", throwable);
+                                    MyLog.e("ConduitUnlockHandler: error observing conduit state: " + throwable);
                                     hideAllConduitViews();
                                 }
                         )
@@ -174,10 +174,10 @@ public class ConduitUnlockHandler extends UnlockOptionHandler {
         intent.setData(Uri.parse(PLAYSTORE_CONDUIT_URL));
         intent.setPackage("com.android.vending");
         try {
-            MyLog.i("ConduitUnlockHandler", "Opening Play Store for Conduit");
+            MyLog.i("ConduitUnlockHandler: opening Play Store for Conduit");
             context.startActivity(intent);
         } catch (ActivityNotFoundException e) {
-            MyLog.w("ConduitUnlockHandler", "Play Store not found, opening in browser: " + PLAYSTORE_CONDUIT_URL);
+            MyLog.w("ConduitUnlockHandler: Play Store not found, opening in browser: " + PLAYSTORE_CONDUIT_URL);
             intent.setPackage(null);
             context.startActivity(intent);
         }
@@ -192,10 +192,10 @@ public class ConduitUnlockHandler extends UnlockOptionHandler {
         intent.setData(Uri.parse(PLAYSTORE_PSIPHON_PRO_URL));
         intent.setPackage("com.android.vending");
         try {
-            MyLog.i("ConduitUnlockHandler", "Opening Play Store for Psiphon Pro");
+            MyLog.i("ConduitUnlockHandler: opening Play Store for Psiphon Pro");
             context.startActivity(intent);
         } catch (ActivityNotFoundException e) {
-            MyLog.w("ConduitUnlockHandler", "Play Store not found, opening in browser: " + PLAYSTORE_PSIPHON_PRO_URL);
+            MyLog.w("ConduitUnlockHandler: Play Store not found, opening in browser: " + PLAYSTORE_PSIPHON_PRO_URL);
             intent.setPackage(null);
             context.startActivity(intent);
         }
@@ -209,7 +209,7 @@ public class ConduitUnlockHandler extends UnlockOptionHandler {
         Intent launchIntent = context.getPackageManager()
                 .getLaunchIntentForPackage("ca.psiphon.conduit");
         if (launchIntent != null) {
-            MyLog.i("ConduitUnlockHandler", "Launching Conduit app");
+            MyLog.i("ConduitUnlockHandler: launching Conduit app");
             context.startActivity(launchIntent);
             dismissDialogRunnable.run();
         }

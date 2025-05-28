@@ -46,7 +46,7 @@ public class SubscriptionUnlockHandler extends UnlockOptionHandler {
 
         CardView subscribeCard = view.findViewById(R.id.subscribeCardView);
         subscribeCard.setOnClickListener(v -> {
-            MyLog.i("SubscriptionUnlockHandler", "User clicked subscribe button, starting subscription activity.");
+            MyLog.i("SubscriptionUnlockHandler: user clicked subscribe button, starting subscription activity.");
             startSubscriptionActivity(v.getContext());
             dismissDialogRunnable.run();
         });
@@ -90,7 +90,7 @@ public class SubscriptionUnlockHandler extends UnlockOptionHandler {
                                         case HAS_UNLIMITED_SUBSCRIPTION:
                                         case HAS_TIME_PASS:
                                         case HAS_LIMITED_SUBSCRIPTION:
-                                            MyLog.i("SubscriptionUnlockHandler", "User has a valid subscription, dismissing dialog.");
+                                            MyLog.i("SubscriptionUnlockHandler: user has a valid subscription, dismissing dialog.");
                                             dismissDialogRunnable.run();
                                             break;
                                         case IAB_FAILURE:
