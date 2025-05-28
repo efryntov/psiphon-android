@@ -101,9 +101,9 @@ public class UnlockOptions {
         public static AppInstallUnlockEntry fromBundle(@NonNull Bundle bundle) {
             boolean display = bundle.getBoolean("display", true);
             int priority = bundle.getInt("priority");
-            String appId = bundle.getString("appId");
-            String appName = bundle.getString("appName");
-            String playStoreUrl = bundle.getString("playStoreUrl");
+            String appId = bundle.getString("appId", "");
+            String appName = bundle.getString("appName", "");
+            String playStoreUrl = bundle.getString("playStoreUrl", "");
             return new AppInstallUnlockEntry(display, priority, appId, appName, playStoreUrl);
         }
     }

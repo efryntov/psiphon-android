@@ -118,8 +118,13 @@ public class UnlockRequiredDialog implements DefaultLifecycleObserver {
             return new ConduitUnlockHandler(entry, disconnectTunnelRunnable, this::dismiss);
 
         } else if (key.startsWith(UnlockOptions.APP_INSTALL_PREFIX)) {
-            return new AppInstallUnlockHandler(key, (UnlockOptions.AppInstallUnlockEntry) entry,
-                    disconnectTunnelRunnable, this::dismiss);
+            if (entry instanceof UnlockOptions.AppInstallUnlockEntry) {
+                return new AppInstallUnlockHandler(key, (UnlockOptions.AppInstallUnlockEntry) entry,
+                        disconnectTunnelRunnable, this::dismiss);
+            } else {
+                MyLog.w("UnlockRequiredDialogNew: entry for key " + key + " is not an AppInstallUnlockEntry");
+                return null;
+            }
         }
 
         MyLog.w("UnlockRequiredDialogNew: unknown unlock option type: " + key);
