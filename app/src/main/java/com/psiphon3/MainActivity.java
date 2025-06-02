@@ -53,6 +53,9 @@ import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.IntentSenderRequest;
+import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AlertDialog;
@@ -128,6 +131,10 @@ public class MainActivity extends LocalizedActivities.AppCompatActivity {
 
 
     private boolean isFirstRun = true;
+
+    private AppUpdateHelper appUpdateHelper;
+    private boolean hasCheckedUpdatesThisSession = false;
+
     private AlertDialog upstreamProxyErrorAlertDialog;
     private AlertDialog disallowedTrafficAlertDialog;
     private UnlockRequiredDialog unlockRequiredDialog;
@@ -147,6 +154,7 @@ public class MainActivity extends LocalizedActivities.AppCompatActivity {
     @Override
     protected void onSaveInstanceState(@NonNull Bundle outState) {
         outState.putBoolean("isFirstRun", isFirstRun);
+        outState.putBoolean("hasCheckedUpdatesThisSession", hasCheckedUpdatesThisSession);
         super.onSaveInstanceState(outState);
     }
 
@@ -213,6 +221,7 @@ public class MainActivity extends LocalizedActivities.AppCompatActivity {
         super.onCreate(savedInstanceState);
         if (savedInstanceState != null) {
             isFirstRun = savedInstanceState.getBoolean("isFirstRun", isFirstRun);
+            hasCheckedUpdatesThisSession = savedInstanceState.getBoolean("hasCheckedUpdatesThisSession", hasCheckedUpdatesThisSession);
         }
 
         setContentView(R.layout.main_activity);
@@ -235,6 +244,16 @@ public class MainActivity extends LocalizedActivities.AppCompatActivity {
 
         // Schedule db maintenance
         LogsMaintenanceWorker.schedule(getApplicationContext());
+
+        // Set up the app update helper
+        ActivityResultLauncher<IntentSenderRequest> appUpdateLauncher = registerForActivityResult(
+                new ActivityResultContracts.StartIntentSenderForResult(),
+                result -> {
+                    if (appUpdateHelper != null) {
+                        appUpdateHelper.handleUpdateResult(result);
+                    }
+                });
+        appUpdateHelper = new AppUpdateHelper(this, appUpdateLauncher, viewPager);
 
         toggleButton = findViewById(R.id.toggleButton);
         connectionProgressBar = findViewById(R.id.connectionProgressBar);
@@ -314,6 +333,10 @@ public class MainActivity extends LocalizedActivities.AppCompatActivity {
         if (unlockDialogDismissDisposable != null && !unlockDialogDismissDisposable.isDisposed()) {
             unlockDialogDismissDisposable.dispose();
         }
+        if (appUpdateHelper != null) {
+            appUpdateHelper.onDestroy();
+            appUpdateHelper = null;
+        }
         super.onDestroy();
     }
 
@@ -365,7 +388,14 @@ public class MainActivity extends LocalizedActivities.AppCompatActivity {
                     .subscribe());
         }
 
-         // If we are going to show the Unlock Required dialog, we do not want to run any
+        // Observe link clicks in the modal web view to open in the external browser
+        // NOTE: do not PsiCash modify links clicked from the view
+        compositeDisposable.add(viewModel.externalBrowserUrlFlowable()
+                .observeOn(AndroidSchedulers.mainThread())
+                .doOnNext(url -> displayBrowser(this, url, false))
+                .subscribe());
+
+        // If we are going to show the Unlock Required dialog, we do not want to run any
         // potentially disruptive onResume actions such as showing toasts, alerts,
         // The rest of the flow will run after the dialog is dismissed.
         if (handleUnlockRequiredUi()) {
@@ -401,17 +431,12 @@ public class MainActivity extends LocalizedActivities.AppCompatActivity {
                 })
                 .subscribe());
 
-        // Observe link clicks in the modal web view to open in the external browser
-        // NOTE: do not PsiCash modify links clicked from the view
-        compositeDisposable.add(viewModel.externalBrowserUrlFlowable()
-                .observeOn(AndroidSchedulers.mainThread())
-                .doOnNext(url -> displayBrowser(this, url, false))
-                .subscribe());
-
         // Check if user data collection disclosure needs to be shown followed by the unsafe traffic
         // alerts preference check and then check if the tunnel should be started automatically
         compositeDisposable.add(
-                vpnServiceDataCollectionDisclosureCompletable()
+                appUpdateCompletable()
+                        .doOnComplete(() -> hasCheckedUpdatesThisSession = true)
+                        .andThen(vpnServiceDataCollectionDisclosureCompletable())
                         .andThen(unsafeTrafficAlertsCompletable())
                         .andThen(autoStartMaybe())
                         .doOnSuccess(__ -> startTunnel())
@@ -609,6 +634,22 @@ public class MainActivity extends LocalizedActivities.AppCompatActivity {
             });
         })
                 .subscribeOn(AndroidSchedulers.mainThread());
+    }
+
+    // Runs app update flow when subscribed to. Completes without showing UI if no updates
+    // are available or if user previously ignored the update. Otherwise, prompts the user
+    // to update the app and completes when the update is handled.
+    // See AppUpdateHelper for more details.
+    private Completable appUpdateCompletable() {
+        return Completable.create(emitter -> {
+            appUpdateHelper.addCompletionListener(() -> {
+                if (!emitter.isDisposed()) {
+                    emitter.onComplete();
+                }
+            });
+
+            appUpdateHelper.handleUpdate(!hasCheckedUpdatesThisSession);
+        }).subscribeOn(AndroidSchedulers.mainThread());
     }
 
     @Override
