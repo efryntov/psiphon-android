@@ -595,6 +595,8 @@
     <!-- Title for the 'Update' action to open the Play Store page for the Psiphon Pro app, do not translate or transliterate 'Psiphon Pro'. -->
     <string name="update_psiphon_pro_action_title">Update Psiphon Pro</string>
 
+    <string name="update_psiphon_pro_action_header">First, update Psiphon Pro</string>
+
     <!-- Description for the 'Update' action to open the Play Store page for the Psiphon Pro app, do not translate or transliterate 'Psiphon Pro'. -->
     <string name="update_psiphon_pro_action_description">Update to the latest version of Psiphon Pro to access this feature</string>
 
