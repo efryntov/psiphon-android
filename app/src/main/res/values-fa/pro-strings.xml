@@ -613,4 +613,15 @@
     <!-- Explanation text that appears below "Create account" button on the PsiCash sign in screen. -->
     <string name="psicash_create_account_explanation_text_updated">ایجاد حساب PsiCash کمک می‌کند تا PsiCash شما هنگام نصب مجدد اپلیکیشن یا استفاده از Psiphon در دستگاه دیگر حفظ شود. لطفاً برای اطلاعات بیشتر به %s#psicash-account مراجعه کنید.</string>
 
+    <!-- Title of the view shown when presenting the app unlock option to install an app in order to unlock Psiphon Pro UI features.
+    The %s will be replaced with the app name passed to the string resource. -->
+    <string name="install_app_to_unlock_title">نصب %s</string>
+
+    <!-- Description of the view shown when presenting the app unlock option to install an app in order to unlock Psiphon Pro UI features.
+    The %s will be replaced with the app name passed to the string resource. -->
+    <string name="install_app_to_unlock_description">برای ادامه اتصال رایگان به سایفون، %s را از پلی استور نصب کنید</string>
+
+    <!-- Header text above "Update Psiphon Pro" action in the unlock required dialog. -->
+    <string name="update_psiphon_pro_action_header">ابتدا سایفون پرو را به‌روزرسانی کنید</string>
+
     </resources>
